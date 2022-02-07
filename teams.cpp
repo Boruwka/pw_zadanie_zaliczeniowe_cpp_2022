@@ -3,6 +3,14 @@
 #include <future>
 #include <queue>
 #include <vector>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <semaphore.h>
+#include <sys/stat.h> 
+#include <sys/mman.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "teams.hpp"
 #include "contest.hpp"
@@ -42,6 +50,7 @@ ContestResult TeamNewThreads::runContestImpl(ContestInput const & contestInput)
     std::vector<bool> is_thread_joined(input_size, false);
     uint64_t num_of_joined_threads = 0;
     bool share = this->share;
+    // printf("team new threads share = %d\n", share);
     std::shared_ptr<SharedResults> sharedResults = this->getSharedResults();
         
     for(InfInt const & singleInput : contestInput)
@@ -165,14 +174,90 @@ ContestResult TeamPool::runContest(ContestInput const & contestInput)
 ContestResult TeamNewProcesses::runContest(ContestInput const & contestInput)
 {
     ContestResult r;
-    //TODO
+    uint64_t max_num_of_procs = this->getSize();
+    uint64_t current_num_of_procs = 0;
+    uint64_t input_size = contestInput.size();
+    //SharedForProcesses* shared = malloc(sizeof(SharedForProcesses)); // chyba nie tak
+    int fd_memory = -1;
+    int flags, prot;
+    prot = PROT_READ | PROT_WRITE;
+    flags = MAP_SHARED | MAP_ANONYMOUS;
+    void* mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
+    SharedForProcesses* shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
+    shared->results = (uint64_t*)(mapped_mem);
+    //SharedForProcesses* shared = (SharedForProcesses*)mmap(NULL, sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
+    //fprintf(stderr, "utworzone mmap\n");
+    // shared->results = (unsigned long int*)malloc(input_size*sizeof(unsigned long long)); // to się chyba jeszcze przyda 
+    //fprintf(stderr, "zaalokowane\n");
+    sem_init(&(shared->sem), 1, 1);
+    //fprintf(stderr, "semafor zainijcalizowany\n");
+    // przyłączanie mapped_mem
+    for (int i = 0; i < input_size; i++)
+    {
+        //fprintf(stderr, "pentla, i = %d\n", i);
+        if (current_num_of_procs == max_num_of_procs)
+        {
+            wait(NULL); // nie wiem, czy to czeka tylko na jednego
+            current_num_of_procs--;
+        }
+        current_num_of_procs++;
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            // jestem potomkiem
+            //sem_wait(&shared->sem);
+            shared->results[i] = calcCollatz(contestInput[i]);
+            //printf("bedziemy wrzucac wynik %lu na pozycje %d\n", shared->results[i], i);
+            //sem_post(&shared->sem);
+            // chyba nawet nie potrzebuję tu semafora
+            exit(0);
+        }
+    }
+    int wpid;
+    while ((wpid = wait(NULL)) > 0); // czekamy na wszystkie dzieci
+    for (int i = 0; i < input_size; i++)
+    {
+        //printf("wrzucamy do wektora %lu\n", shared->results[i]);
+        r.push_back(shared->results[i]);
+    }
     return r;
 }
 
 ContestResult TeamConstProcesses::runContest(ContestInput const & contestInput)
 {
     ContestResult r;
-    //TODO
+    uint64_t num_of_procs = this->getSize();
+    uint64_t input_size = contestInput.size();
+    //SharedForProcesses* shared = malloc(sizeof(SharedForProcesses)); // chyba nie tak
+    int fd_memory = -1;
+    int flags, prot;
+    prot = PROT_READ | PROT_WRITE;
+    flags = MAP_SHARED | MAP_ANONYMOUS;
+    void* mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
+    SharedForProcesses* shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
+    shared->results = (uint64_t*)(mapped_mem);
+    sem_init(&(shared->sem), 1, 1);
+    // przyłączanie mapped_mem
+    for (int i = 0; i < num_of_procs; i++)
+    {
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            // jestem potomkiem
+            for (int j = i; j < input_size; j+=num_of_procs)
+            {
+                shared->results[j] = calcCollatz(contestInput[j]);
+            }
+            exit(0);
+        }
+    }
+    int wpid;
+    while ((wpid = wait(NULL)) > 0); // czekamy na wszystkie dzieci
+    for (int i = 0; i < input_size; i++)
+    {
+        //printf("wrzucamy do wektora %lu\n", shared->results[i]);
+        r.push_back(shared->results[i]);
+    }
     return r;
 }
 
@@ -198,6 +283,5 @@ ContestResult TeamAsync::runContest(ContestInput const & contestInput)
     {
         r.push_back(futures[i].get());
     }
-    // auto futureLambda= std::async([](const std::string& s ){return "Hello C++11 from " + s + ".";},"lambda function")
     return r;
 }

@@ -31,7 +31,7 @@ inline uint64_t calcCollatz(InfInt n)
 
 inline uint64_t calcCollatzWithShared(InfInt n, std::shared_ptr<SharedResults> sharedResults)
 {
-    // It's ok even if the value overflow
+    //std::cout << "bede wykonywac funkcje with shared dla n = " << n << "\n";
     uint64_t count = 0;
     assert(n > 0);
 
@@ -40,28 +40,34 @@ inline uint64_t calcCollatzWithShared(InfInt n, std::shared_ptr<SharedResults> s
         return 0;
     }
 
-    InfInt new_n;
-    if (n % 2 == 1)
+    sharedResults->mut.lock();
+    uint64_t res;
+    if (sharedResults->map.count(n))
     {
-        new_n = InfInt(3) * n + 1;
+        //std::cout << "znalezlismy wynik w mapie\n";
+        res = sharedResults->map[n];
+        sharedResults->mut.unlock();
+        return res;
     }
     else
     {
-        new_n = n/2;
-    }  
-    
-    uint64_t res;          
-    
-    if (sharedResults->map.count(new_n))
-    {
-        res = sharedResults->map[new_n] + 1;
+        //std::cout << "nie ma wyniku w mapie\n";
+        sharedResults->mut.unlock();
+        InfInt new_n;
+        if (n % 2 == 1)
+        {
+            new_n = InfInt(3) * n + 1;
+        }
+        else
+        {
+            new_n = n/2;
+        }  
+        res = calcCollatzWithShared(new_n, sharedResults) + 1;
+        sharedResults->mut.lock();
+        //std::cout << "zapisujemy wynik do mapy\n";
+        sharedResults->map[n] = res;
+        sharedResults->mut.unlock();
     }
-    else
-    {
-        res = calcCollatz(new_n) + 1;
-    }
-
-    sharedResults->map[n] = res;
     return res;
 
 }

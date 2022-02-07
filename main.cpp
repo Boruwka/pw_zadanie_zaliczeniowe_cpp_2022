@@ -28,10 +28,10 @@ int main(int argc, char ** argv)
             teams.push_back(std::shared_ptr<Team>(new TeamNewThreads{numWorkers, share}));
             teams.push_back(std::shared_ptr<Team>(new TeamConstThreads{numWorkers, share}));
             teams.push_back(std::shared_ptr<Team>(new TeamPool{numWorkers, share}));  
-            //teams.push_back(std::shared_ptr<Team>(new TeamNewProcesses{numWorkers, share}));
-            //teams.push_back(std::shared_ptr<Team>(new TeamConstProcesses{numWorkers, share}));
+            teams.push_back(std::shared_ptr<Team>(new TeamNewProcesses{numWorkers, share}));
+            teams.push_back(std::shared_ptr<Team>(new TeamConstProcesses{numWorkers, share}));
         }
-        teams.push_back(std::shared_ptr<Team>(new TeamAsync{1, share}));
+        teams.push_back(std::shared_ptr<Team>(new TeamAsync{1, share})); 
     }
     
     //teams.push_back(std::shared_ptr<Team>(new TeamNewThreads{1, false})); // debug!!
@@ -55,8 +55,9 @@ int main(int argc, char ** argv)
                     /*printf("kontest to:\n");
                     for (auto i: generator->getContest(contestId))
                     {
-                        std::cout << i.toString() << std::endl;
+                        std::cout << i.toString() << " ";
                     }
+                    std::cout << "\n";
                     printf("\nwyniki przewidywane to:\n");
                     for (auto i: *expectedResult)
                     {
@@ -67,7 +68,7 @@ int main(int argc, char ** argv)
                     {
                         printf("%lu ", i);
                     }
-                    printf("\n"); */
+                    printf("\n");*/
                     assert(*expectedResult == lastResult);
                 }
                 else

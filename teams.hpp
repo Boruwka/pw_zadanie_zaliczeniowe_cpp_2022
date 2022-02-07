@@ -22,7 +22,7 @@ public:
         {
             this->sharedResults.reset(new SharedResults{});
         }
-        this->share = share;
+        this->share = shareResults;
     }
     virtual ~Team() {}
 
