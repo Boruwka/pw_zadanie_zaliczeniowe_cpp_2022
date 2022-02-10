@@ -31,7 +31,8 @@ def read_time(line):
     return czas
             
         
-filename = 'wszystkie_wyniki_bez_procesow_x_u_mnie.txt'
+# filename = 'timer_outputs_all_students.txt'
+filename = 'timer_outputs_all_laptop.txt'
 file = open(filename, "r")
 lines = file.readlines()
 team_nums = {}
@@ -70,23 +71,32 @@ for i in range(1, num_of_teams):
     name_averages[team_nums[i]] = averages[i]
 print(name_averages)'''
 
-averages[11] = 0
-averages[12] = 0 # żeby niezakodzone procesy z X nam nie psuły wykresów
+'''averages[11] = 0
+averages[12] = 0 # żeby niezakodzone procesy z X nam nie psuły wykresów'''
+
+good_indexes = np.array([1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 13])
+teams_nums_np = np.array(teams_nums)
+averages_np = np.array(averages)
 
 
 plt.figure(figsize=(30, 3))
 plt.bar(teams_nums[1:14], averages[1:14])
-plt.suptitle('All teams avg my laptop')
+plt.suptitle('All teams avg')
+plt.show()
+
+plt.figure(figsize=(30, 3))
+plt.bar(teams_nums_np[good_indexes], averages_np[good_indexes])
+plt.suptitle('Without new_process avg')
 plt.show()
 
 plt.figure(figsize=(30, 3))
 plt.bar(teams_nums[1:8], averages[1:8])
-plt.suptitle('Not X teams avg my laptop')
+plt.suptitle('Not X teams avg')
 plt.show()
 
 plt.figure(figsize=(30, 3))
 plt.bar(teams_nums[8:14], averages[8:14])
-plt.suptitle('X teams avg my laptop')
+plt.suptitle('X teams avg')
 plt.show()
 
 

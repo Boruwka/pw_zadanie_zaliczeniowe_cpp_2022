@@ -17,8 +17,12 @@ class SharedResults
 struct SharedForProcesses
 {    
     uint64_t* results;
-    const uint64_t N = 1000000;
-    uint64_t remembered[1000000];
+};
+
+struct SharedForProcessesRemembered
+{
+    const uint64_t N = 10000;
+    uint64_t remembered[10000];
     sem_t sem;
 };
 

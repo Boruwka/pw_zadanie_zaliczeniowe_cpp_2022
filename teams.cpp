@@ -181,26 +181,40 @@ ContestResult TeamNewProcesses::runContest(ContestInput const & contestInput)
     int flags, prot;
     prot = PROT_READ | PROT_WRITE;
     flags = MAP_SHARED | MAP_ANONYMOUS;
-    void* mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
-    SharedForProcesses* shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
-    shared->results = (uint64_t*)(mapped_mem);
-    fprintf(stderr, "tu dziala\n");
+    void* mapped_mem;
+    SharedForProcesses* shared;
+    SharedForProcessesRemembered* shared_remembered;
+    if (this->share)
+    {
+        mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses) + sizeof(SharedForProcessesRemembered), prot, flags, fd_memory, 0);
+        shared_remembered = (SharedForProcessesRemembered*)(mapped_mem + input_size * sizeof(uint64_t) + sizeof(SharedForProcesses));
+        shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
+        shared->results = (uint64_t*)(mapped_mem);
+        
+    }
+    else
+    {
+        mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
+        shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
+        shared->results = (uint64_t*)(mapped_mem);
+    }
     
     if (this->share)
     {
-        sem_init(&(shared->sem), 1, 1);
-        for (uint64_t i = 0; i < shared->N; i++)
+        sem_init(&(shared_remembered->sem), 1, 1);
+        for (uint64_t i = 0; i < shared_remembered->N; i++)
         {
-            shared->remembered[i] = 0;
+            shared_remembered->remembered[i] = 0;
         }
     }
 
 
-    fprintf(stderr, "tu dziala\n");
+    //fprintf(stderr, "tu dziala\n");
 
     std::map<InfInt, uint64_t> map;
     for (int i = 0; i < input_size; i++)
     {
+        //fprintf(stderr, "tu dziala i = %d\n", i);
         if (current_num_of_procs == max_num_of_procs)
         {
             wait(NULL); // nie wiem, czy to czeka tylko na jednego
@@ -214,11 +228,11 @@ ContestResult TeamNewProcesses::runContest(ContestInput const & contestInput)
             //shared->results[i] = calcCollatz(contestInput[i]);
             if (this->share)
             {
-                shared->results[i] = calcCollatz(contestInput[i]);
+                shared->results[i] = calcCollatzWithSharedProcesses(contestInput[i], shared_remembered);
             }
             else
             {
-                shared->results[i] = calcCollatzWithSharedProcesses(contestInput[i], shared);
+                shared->results[i] = calcCollatz(contestInput[i]);
             }
             exit(0);
         }
@@ -243,20 +257,37 @@ ContestResult TeamConstProcesses::runContest(ContestInput const & contestInput)
     prot = PROT_READ | PROT_WRITE;
     flags = MAP_SHARED | MAP_ANONYMOUS;
 
-    void* mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
-    SharedForProcesses* shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
-    shared->results = (uint64_t*)(mapped_mem);
+    
+    void* mapped_mem;
+    SharedForProcesses* shared;
+    SharedForProcessesRemembered* shared_remembered;
     if (this->share)
     {
-        sem_init(&(shared->sem), 1, 1);
-        for (uint64_t i = 0; i < shared->N; i++)
+        mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses) + sizeof(SharedForProcessesRemembered), prot, flags, fd_memory, 0);
+        shared_remembered = (SharedForProcessesRemembered*)(mapped_mem + input_size * sizeof(uint64_t) + sizeof(SharedForProcesses));
+        shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
+        shared->results = (uint64_t*)(mapped_mem);
+        
+    }
+    else
+    {
+        mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
+        shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
+        shared->results = (uint64_t*)(mapped_mem);
+    }
+
+    if (this->share)
+    {
+        sem_init(&(shared_remembered->sem), 1, 1);
+        for (uint64_t i = 0; i < shared_remembered->N; i++)
         {
-            shared->remembered[i] = 0;
+            shared_remembered->remembered[i] = 0;
         }
     }
 
     for (int i = 0; i < num_of_procs; i++)
     {
+        //fprintf(stderr, "tu dziala\n");
         pid_t pid = fork();
         if (pid == 0)
         {
@@ -265,11 +296,11 @@ ContestResult TeamConstProcesses::runContest(ContestInput const & contestInput)
             {
                 if (this->share)
                 {
-                    shared->results[j] = calcCollatz(contestInput[j]);
+                    shared->results[j] = calcCollatzWithSharedProcesses(contestInput[j], shared_remembered);
                 }
                 else
                 {
-                    shared->results[j] = calcCollatzWithSharedProcesses(contestInput[j], shared);
+                    shared->results[j] = calcCollatz(contestInput[j]);
                 }
             }
             exit(0);

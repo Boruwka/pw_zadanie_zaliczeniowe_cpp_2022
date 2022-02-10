@@ -72,7 +72,7 @@ inline uint64_t calcCollatzWithShared(InfInt n, std::shared_ptr<SharedResults> s
 
 }
 
-inline uint64_t calcCollatzWithSharedProcesses(InfInt n, SharedForProcesses* shared)
+inline uint64_t calcCollatzWithSharedProcesses(InfInt n, SharedForProcessesRemembered* shared)
 {
     //std::cout << "bede wykonywac funkcje with shared dla n = " << n << "\n";
     uint64_t count = 0;

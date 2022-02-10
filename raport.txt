@@ -1,15 +1,6 @@
-/*
-Podsumowanie wyników konkursu powinno zostać opisane w raporcie, który przedstawia czas działania każdego zespołu w różnych scenariuszach. Czas działania powinien być przedstawiony na czytelnych wykresach, na podstawie danych zbieranych przez obiekty klasy DefaultTimer. Dla każdego konkursu uzasadnij dlaczego konkretne drużyny były szybsze, a inne wolniejsze. Rozwiązania wielowątkowe powinny w uzasadnionych przypadkach być istotnie szybsze, jednak nie należy spodziewać się liniowego przyspieszenia w każdym z przypadków. Opisując wyniki uwzględnij rezultaty "CalcCollatzSoloTimer" dla różnych konkursów. W uzasadnieniu możesz również uwzględnić swoje własne timery, jeśli je dodasz. Eksperymenty należy przeprowadzić w dwóch różnych środowiskach np. komputer stacjonarny / laptop i maszyna students. Zadbaj o opis środowiska w raporcie, w szczególności model procesora wraz z liczbą rdzeni. Zwróć uwagę na różnice w wynikach które pojawią się przy wielokrotnym uruchamianiu programu. Idealny raport powinien zmieścić się na dwóch stronach a4. */
-
-/* Wykresy:
-- dopisać procesy z X
-- śrdenia dla każdego size dla każdego teamu który ma size
-- wszystko jeszcze na studentsie
-"Zwróć uwagę na różnice w wynikach które pojawią się przy wielokrotnym uruchamianiu programu" */
-
-W moim rozwiązaniu drużyny X zapisują każdy obliczony wynik (nie tylko ten ostateczny) do std::map. Zanim wywołają dalsze obliczenia dla liczby n, sprawdzają, czy wartość dla niej nie została już wcześniej obliczona i umieszczona w mapie. Chciałabym, żeby procesy z X przekazywały liczby do zapisania w std::map procesowi-korzeniowi za pomocą łączy nienazwanych, ale nie wiem, czy uda mi się to zaimplementować. Łatwiejsza wersja procesów z X jest taka, że korzystają one z tablicy N wartości i tylko dla nich zapisują wyniki (dla większych liczb nie).
+W moim rozwiązaniu drużyny X zapisują każdy obliczony wynik (nie tylko ten ostateczny) do std::map. Zanim wywołają dalsze obliczenia dla liczby n, sprawdzają, czy wartość dla niej nie została już wcześniej obliczona i umieszczona w mapie. Ponieważ mapa, jak właściwie każda inna sturktura danych pozwalająca na szybki dostęp do konkretnego wyniku i dynamiczne wstawianie wyników, potrzebuje dynamicznej alokacji pamięci, nie udało mi się jej użyć w pamięci współdzielonej między procesami. Dlatego zespoły NewProcessesX i ConstProcesses z X mają mniej optymalne rozwiązanie - korzystają po prostu z talicy o rozmiarze N = 10000, gdzie zapisują wyniki obliczone dla liczb < N. 
 Jeśli chodzi o zmiany w dostarczonych plikach, to dodałam atrybut bool share do klasy Team, żeby móc wygodniej odifowywać w runContest, czy mam go przeprowadzać dla drużyny z X czy bez X. share = true oznacza, że drużyna jest z X, share = false, że bez X.  
-Swoje rozwiązanie testowałam na moim komputerze oraz studentsie (na tym drugim potrzebowałam komendy "ulimit -s 128"). 
+Swoje rozwiązanie testowałam na moim komputerze oraz studentsie (na tym drugim potrzebowałam komendy "ulimit -s 128", niestety mimo to czasem mam bad alloc). 
 Opis mojego komputera: 
 Architektura:           x86_64
 Tryb(y) pracy CPU:      32-bit, 64-bit
@@ -61,13 +52,18 @@ Cache L2:                        256 MiB
 Cache L3:                        1 GiB
 Procesory węzła NUMA 0:          0-63
 
-Wykres1: Średni czas działania każdej drużyny na moim komputerze. 
-Najwolniejsza drużyna to TeamNewProcesses. Tworzy ona bardzo dużo procesów od nowa, a tworzenie nowego procesu jest tak wolne, że całość wychodzi niemal dwa razy wolniej niż TeamSolo. Jest to jedyna drużyna wolniejsza niż TeamSolo, co wskazuje, że generalnie używanie wątków i procesów przyspiesza wykonanie programu (około dwukrotnie w średnim przypadku). TeamConstProcesses działa w podobnym czasie co TeamConstThreads i TeamPool. Prawdopodobnie dlatego, że tworzenie jedynie kilku procesów nie jest tak obciążające. TeamNewThreads działa od nich trochę szybciej. Wydaje mi się, że to dlatego, że w nim sprytnie czekam na to, który wątek pierwszy się zakończy. Czyli np. w TeamConstThreads jeden wątek może dostać getSize() bardzo prostych obliczeń, a inny getSize() bardzo trudnych, i wtedy praca nie będzie podzielona między nie równo. Jednak zdaje mi się, że TeamPool powinno działać szybciej, niż TeamNewThreads, a tymczasem działa ono w czasie podobnym do TeamConstThreads, może odrobinę szybciej. TeamAsync działa szybciej niż TeamNewThreads, ponieważ optymalniej gospodaruje wątkami. 
+Wszystkie wykresy przedstawiają średnie czasy działania (z podziałem na size lub bez) poszczególnych drużyn odpowiednio na moim komuterze i studentsie. Wszystkie czasy wyrażone są w milisekundach. 
+Spostrzeżenia:
+1. Czas nie różni się za bardzo pomiędzy poszczególnymi wykonaniami programu. 
+2. Najwolniejszą drużyną jest zdecydowanie TeamNewProcesses, ponieważ tworzy ona dużo nowych procesów, co jest szczególnie ciężką operacją. W wersji z X nie jest ona dużo szybsza, a czasem nawet wolniejsza, ponieważ wyjątkowo dużo czasu zajmuje alokacja dzielonej tablicy o rozmiarze 10^4. Z jakiegoś powodu działa ona dużo wolniej na students niż na moim laptopie. 
+3. TeamSolo również działa wolniej na students, pozostałe drużyny działają podobnie. 
+4. Najszybciej działają drużyny dla size = 4. Szczególne przyspieszenie występuje dla wszystkich drużyn na wszystkich urządzeniach między size = 1, a size = 2. Dla students występuje minimalne przyspieszenie dla size > 4, na moim laptopie nie ma różnicy - wynika to prawdopodobnie z tego, że students może robić więcej rzeczy współbieżnie. 
+5. Drużyny z X (oprócz NewProcesses i NewThreads) działają istotnie szybciej, niż drużyny bez X. Oznacza to, że mimo, że zapisywanie do mapy zajmuje dodatkowy czas, opłaca się to robić, natomiast tablica dla 10^4 najmniejszych liczb niewiele daje. Próbowałam zrobić taką o rozmiarze 10^6, ale zużywa ona dużo pamięci i czas alokacji jest ogromny. 
+6. TeamNewThreads jest zasadniczo szybsze, niż TeamConstThreads. TeamNewThreads co prawda tworzy więcej nowych wątków, ale ma pewną zaletę - w ConstThreads jeden wątek może dostać np. trzy trudne obliczenia, a drugi trzy łatwe, natomiast w NewThreads joinuję pierwszy wątek, który się zakończy (rozwiązuję to wrzucając numery końcżących się wątków do kolejki).  
+7. Właściwie to NewThreads zdaje się być najszybszą drużyną z bezXowych, co jest dla mnie nieco zaskakujące, bo Async i Pool powinny być bardziej zoptymalizowane, niż tworzenie nowych wątków na pałę. 
+8. Spośród drużyn z X ciężko wyłonić najszybszą, bo mają one bardzo podobne czasy (poza drużynami procesowymi).
+9. Ciekawe jest, że dla drużyny ConstProcesses obserwujemy niemal dwukrotną różnicę czasu pomiędzy size = 7 a size = 4 na studentsie. Na laptopie jej prawie nie ma. Dla NewProcesses również jej nie ma. Dla Pool również jest taka różnica, dla size = 10 działa nawet jeszcze szybciej na studentsie, w sumie około 8 razy szybciej, niż dla size = 1. 
 
-Wykres2: Średni czas działania drużyn bez X na moim komputerze. 
-
-Wykres3: Średni czas działania drużyn z X na moim komputerze. 
-Czas działania każdej z nich jest bardzo podobny, różnice są minimalne. Wszystkie działają istotnie szybciej, niż ich odpowiedniki z X. 
-
-
+10. 
+10. 
 

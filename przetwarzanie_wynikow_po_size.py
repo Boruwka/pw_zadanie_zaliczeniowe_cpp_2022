@@ -82,11 +82,11 @@ def get_wykres(processed_name, lines):
 
     plt.figure(figsize=(30, 3))
     plt.bar(sizes, avgs)
-    plt.suptitle(processed_name + 'my laptop avgs by size')
+    plt.suptitle(processed_name + ' avgs by size')
     plt.show()
             
-
-filename = 'wszystkie_wyniki_bez_procesow_x_u_mnie.txt'
+filename = 'timer_outputs_all_students.txt'
+# filename = 'timer_outputs_all_laptop.txt'
 file = open(filename, "r")
 lines = file.readlines()
 processed_names = ['TeamNewThreads', 'TeamConstThreads', 'TeamPool', 'TeamNewProcesses', 'TeamConstProcesses', 'TeamNewThreadsX', 'TeamConstThreadsX', 'TeamPoolX', 'TeamNewProcessesX', 'TeamConstProcessesX']
