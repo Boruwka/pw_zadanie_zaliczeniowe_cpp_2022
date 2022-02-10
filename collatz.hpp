@@ -72,4 +72,50 @@ inline uint64_t calcCollatzWithShared(InfInt n, std::shared_ptr<SharedResults> s
 
 }
 
+inline uint64_t calcCollatzWithSharedProcesses(InfInt n, SharedForProcesses* shared)
+{
+    //std::cout << "bede wykonywac funkcje with shared dla n = " << n << "\n";
+    uint64_t count = 0;
+    assert(n > 0);
+
+    if (n == 1)
+    {
+        return 0;
+    }
+
+    sem_wait(&shared->sem);
+    uint64_t res;
+    if (n < shared->N && shared->remembered[n.toUnsignedLong()] != 0)
+    {
+        //std::cout << "znalezlismy wynik w mapie\n";
+        res = shared->remembered[n.toUnsignedLong()];
+        sem_post(&shared->sem);
+        return res;
+    }
+    else
+    {
+        //std::cout << "nie ma wyniku w mapie\n";
+        sem_post(&shared->sem);
+        InfInt new_n;
+        if (n % 2 == 1)
+        {
+            new_n = InfInt(3) * n + 1;
+        }
+        else
+        {
+            new_n = n/2;
+        }  
+        res = calcCollatzWithSharedProcesses(new_n, shared) + 1;
+        if (n < shared->N)
+        {
+            sem_wait(&shared->sem);
+            //std::cout << "zapisujemy wynik do mapy\n";
+            shared->remembered[n.toUnsignedLong()] = res;
+            sem_post(&shared->sem);
+        } 
+    }
+    return res;
+
+}
+
 #endif

@@ -177,7 +177,6 @@ ContestResult TeamNewProcesses::runContest(ContestInput const & contestInput)
     uint64_t max_num_of_procs = this->getSize();
     uint64_t current_num_of_procs = 0;
     uint64_t input_size = contestInput.size();
-    //SharedForProcesses* shared = malloc(sizeof(SharedForProcesses)); // chyba nie tak
     int fd_memory = -1;
     int flags, prot;
     prot = PROT_READ | PROT_WRITE;
@@ -185,16 +184,23 @@ ContestResult TeamNewProcesses::runContest(ContestInput const & contestInput)
     void* mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
     SharedForProcesses* shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
     shared->results = (uint64_t*)(mapped_mem);
-    //SharedForProcesses* shared = (SharedForProcesses*)mmap(NULL, sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
-    //fprintf(stderr, "utworzone mmap\n");
-    // shared->results = (unsigned long int*)malloc(input_size*sizeof(unsigned long long)); // to się chyba jeszcze przyda 
-    //fprintf(stderr, "zaalokowane\n");
-    sem_init(&(shared->sem), 1, 1);
-    //fprintf(stderr, "semafor zainijcalizowany\n");
-    // przyłączanie mapped_mem
+    fprintf(stderr, "tu dziala\n");
+    
+    if (this->share)
+    {
+        sem_init(&(shared->sem), 1, 1);
+        for (uint64_t i = 0; i < shared->N; i++)
+        {
+            shared->remembered[i] = 0;
+        }
+    }
+
+
+    fprintf(stderr, "tu dziala\n");
+
+    std::map<InfInt, uint64_t> map;
     for (int i = 0; i < input_size; i++)
     {
-        //fprintf(stderr, "pentla, i = %d\n", i);
         if (current_num_of_procs == max_num_of_procs)
         {
             wait(NULL); // nie wiem, czy to czeka tylko na jednego
@@ -205,11 +211,15 @@ ContestResult TeamNewProcesses::runContest(ContestInput const & contestInput)
         if (pid == 0)
         {
             // jestem potomkiem
-            //sem_wait(&shared->sem);
-            shared->results[i] = calcCollatz(contestInput[i]);
-            //printf("bedziemy wrzucac wynik %lu na pozycje %d\n", shared->results[i], i);
-            //sem_post(&shared->sem);
-            // chyba nawet nie potrzebuję tu semafora
+            //shared->results[i] = calcCollatz(contestInput[i]);
+            if (this->share)
+            {
+                shared->results[i] = calcCollatz(contestInput[i]);
+            }
+            else
+            {
+                shared->results[i] = calcCollatzWithSharedProcesses(contestInput[i], shared);
+            }
             exit(0);
         }
     }
@@ -228,16 +238,23 @@ ContestResult TeamConstProcesses::runContest(ContestInput const & contestInput)
     ContestResult r;
     uint64_t num_of_procs = this->getSize();
     uint64_t input_size = contestInput.size();
-    //SharedForProcesses* shared = malloc(sizeof(SharedForProcesses)); // chyba nie tak
     int fd_memory = -1;
     int flags, prot;
     prot = PROT_READ | PROT_WRITE;
     flags = MAP_SHARED | MAP_ANONYMOUS;
+
     void* mapped_mem = mmap(NULL, input_size * sizeof(uint64_t) + sizeof(SharedForProcesses), prot, flags, fd_memory, 0);
     SharedForProcesses* shared = (SharedForProcesses*)(mapped_mem + input_size * sizeof(uint64_t));
     shared->results = (uint64_t*)(mapped_mem);
-    sem_init(&(shared->sem), 1, 1);
-    // przyłączanie mapped_mem
+    if (this->share)
+    {
+        sem_init(&(shared->sem), 1, 1);
+        for (uint64_t i = 0; i < shared->N; i++)
+        {
+            shared->remembered[i] = 0;
+        }
+    }
+
     for (int i = 0; i < num_of_procs; i++)
     {
         pid_t pid = fork();
@@ -246,11 +263,19 @@ ContestResult TeamConstProcesses::runContest(ContestInput const & contestInput)
             // jestem potomkiem
             for (int j = i; j < input_size; j+=num_of_procs)
             {
-                shared->results[j] = calcCollatz(contestInput[j]);
+                if (this->share)
+                {
+                    shared->results[j] = calcCollatz(contestInput[j]);
+                }
+                else
+                {
+                    shared->results[j] = calcCollatzWithSharedProcesses(contestInput[j], shared);
+                }
             }
             exit(0);
         }
     }
+    
     int wpid;
     while ((wpid = wait(NULL)) > 0); // czekamy na wszystkie dzieci
     for (int i = 0; i < input_size; i++)

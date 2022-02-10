@@ -5,6 +5,7 @@
 #include <mutex> 
 #include <semaphore.h>
 
+
 class SharedResults
 {
     public:
@@ -14,11 +15,13 @@ class SharedResults
 };
 
 struct SharedForProcesses
-{
-    //unsigned long int* results; // jak zadeklarować tu tablicę? 
-    sem_t sem; // semafor chroniący dostęp do results
+{    
     uint64_t* results;
+    const uint64_t N = 1000000;
+    uint64_t remembered[1000000];
+    sem_t sem;
 };
+
 
 
 #endif
